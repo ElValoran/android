@@ -54,6 +54,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
@@ -232,6 +234,19 @@ internal class FrontendViewModel @VisibleForTesting constructor(
 
     /** Job tracking the zoom settings flow collection - restarted on each page load. */
     private var zoomObserverJob: Job? = null
+
+    /**
+     * The user's "Autoplay video" preference.
+     *
+     * Lives outside [FrontendViewState] because the WebView is rendered during `Loading`,
+     * `Content`, and `Error`states , and all three states need the value. Exposed as a [StateFlow]
+     * so the screen can read the current value synchronously when configuring the WebView at
+     * creation time (avoiding a one-shot reload once the persisted value lands) and react to
+     * subsequent changes via collection.
+     */
+    val autoPlayVideoEnabled: StateFlow<Boolean> = flow {
+        emitAll(prefsRepository.autoPlayVideoFlow())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, initialValue = false)
 
     init {
         viewModelScope.launch {

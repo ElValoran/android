@@ -74,6 +74,8 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.extension.RegisterExtension
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @ExtendWith(ConsoleLogExtension::class)
@@ -91,8 +93,10 @@ class FrontendViewModelTest {
     private val downloadManager: FrontendDownloadManager = mockk(relaxed = true)
     private val gestureHandler: FrontendGestureHandler = mockk(relaxed = true)
     private val zoomSettingsFlow = MutableStateFlow(ZoomSettings())
+    private val autoPlayVideoFlow = MutableStateFlow(false)
     private val prefsRepository: PrefsRepository = mockk(relaxed = true) {
         coEvery { this@mockk.zoomSettingsFlow() } returns this@FrontendViewModelTest.zoomSettingsFlow
+        coEvery { this@mockk.autoPlayVideoFlow() } returns this@FrontendViewModelTest.autoPlayVideoFlow
     }
 
     private val serverId = 1
@@ -1703,6 +1707,36 @@ class FrontendViewModelTest {
                 assertEquals(FrontendEvent.RequestFullscreen(fullscreen = false), awaitItem())
                 cancelAndIgnoreRemainingEvents()
             }
+        }
+    }
+
+    @Nested
+    inner class AutoPlayVideoSetting {
+
+        @Test
+        fun `Given pref flow emits new value when collected then exposed StateFlow reflects it`() = runTest {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            assertEquals(false, viewModel.autoPlayVideoEnabled.value)
+
+            autoPlayVideoFlow.value = true
+            advanceUntilIdle()
+
+            assertEquals(true, viewModel.autoPlayVideoEnabled.value)
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = [true, false])
+        fun `Given pref flow seeded with value when ViewModel constructed then exposed StateFlow has that value`(
+            value: Boolean,
+        ) = runTest {
+            autoPlayVideoFlow.value = value
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            assertEquals(value, viewModel.autoPlayVideoEnabled.value)
         }
     }
 }
