@@ -210,4 +210,56 @@ class PrefsRepositoryImplTest {
             }
         }
     }
+
+    @Test
+    fun `Given no approved tags when listing then returns empty list`() = runTest {
+        coEvery { localStorage.getStringSet("allowed_tags") } returns null
+
+        assertEquals(emptySet<String>(), repository.getAllowedTags())
+    }
+
+    @Test
+    fun `Given approved tags stored when listing then returns them`() = runTest {
+        coEvery { localStorage.getStringSet("allowed_tags") } returns setOf("tag-a", "tag-b")
+
+        assertEquals(setOf("tag-a", "tag-b"), repository.getAllowedTags())
+    }
+
+    @Test
+    fun `Given new tag when approving then it is added to the stored set`() = runTest {
+        coEvery { localStorage.getStringSet("allowed_tags") } returns setOf("tag-a")
+        coEvery { localStorage.putStringSet(any(), any()) } returns Unit
+
+        repository.addAllowedTag("tag-b")
+
+        coVerify(exactly = 1) { localStorage.putStringSet("allowed_tags", setOf("tag-a", "tag-b")) }
+    }
+
+    @Test
+    fun `Given no approved tags when approving then writes a single-entry set`() = runTest {
+        coEvery { localStorage.getStringSet("allowed_tags") } returns null
+        coEvery { localStorage.putStringSet(any(), any()) } returns Unit
+
+        repository.addAllowedTag("tag-a")
+
+        coVerify(exactly = 1) { localStorage.putStringSet("allowed_tags", setOf("tag-a")) }
+    }
+
+    @Test
+    fun `Given tag already approved when approving again then storage is not written`() = runTest {
+        coEvery { localStorage.getStringSet("allowed_tags") } returns setOf("tag-a")
+
+        repository.addAllowedTag("tag-a")
+
+        coVerify(exactly = 0) { localStorage.putStringSet(any(), any()) }
+    }
+
+    @Test
+    fun `Given approved tags when clearing then storage entry is removed`() = runTest {
+        coEvery { localStorage.remove(any()) } returns Unit
+
+        repository.clearAllowedTags()
+
+        coVerify(exactly = 1) { localStorage.remove("allowed_tags") }
+    }
 }
