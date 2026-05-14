@@ -823,6 +823,7 @@ class HealthConnectSensorManager : SensorManager {
         val sessionDuration = (lastRecord.endTime.toEpochMilli() - lastRecord.startTime.toEpochMilli())
             .toDuration(DurationUnit.MILLISECONDS)
             .inWholeMinutes
+            .coerceAtLeast(0)
         onSensorUpdated(
             context,
             mindfulnessDuration,
