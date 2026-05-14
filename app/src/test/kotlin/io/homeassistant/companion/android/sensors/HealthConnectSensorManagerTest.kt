@@ -4,12 +4,15 @@ import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.HealthConnectFeatures
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.MindfulnessSessionRecord
 import io.homeassistant.companion.android.testing.unit.ConsoleLogExtension
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -51,5 +54,17 @@ class HealthConnectSensorManagerTest {
             available,
             permissions.contains(HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND),
         )
+    }
+
+    @Test
+    fun `Given mindfulness sensor when getting permissions then includes MindfulnessSessionRecord read permission`() {
+        mockkObject(healthConnectClient.features)
+        every {
+            healthConnectClient.features.getFeatureStatus(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND)
+        } returns HealthConnectFeatures.FEATURE_STATUS_UNAVAILABLE
+
+        val permissions = sensorManager.requiredPermissions(context, HealthConnectSensorManager.mindfulnessDuration.id)
+
+        assertTrue(permissions.contains(HealthPermission.getReadPermission(MindfulnessSessionRecord::class)))
     }
 }

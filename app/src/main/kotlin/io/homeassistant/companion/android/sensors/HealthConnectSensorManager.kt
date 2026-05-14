@@ -28,6 +28,7 @@ import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.HydrationRecord
 import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.MealType
+import androidx.health.connect.client.records.MindfulnessSessionRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.RespiratoryRateRecord
@@ -251,6 +252,17 @@ class HealthConnectSensorManager : SensorManager {
             entityCategory = SensorManager.ENTITY_CATEGORY_DIAGNOSTIC,
         )
 
+        val mindfulnessDuration = SensorManager.BasicSensor(
+            id = "health_connect_mindfulness_duration",
+            type = "sensor",
+            commonR.string.basic_sensor_name_mindfulness_duration,
+            commonR.string.sensor_description_mindfulness_duration,
+            "mdi:meditation",
+            deviceClass = "duration",
+            unitOfMeasurement = "min",
+            entityCategory = SensorManager.ENTITY_CATEGORY_DIAGNOSTIC,
+        )
+
         val oxygenSaturation = SensorManager.BasicSensor(
             id = "health_connect_oxygen_saturation",
             type = "sensor",
@@ -365,6 +377,7 @@ class HealthConnectSensorManager : SensorManager {
             height.id to HeightRecord::class,
             hydration.id to HydrationRecord::class,
             leanBodyMass.id to LeanBodyMassRecord::class,
+            mindfulnessDuration.id to MindfulnessSessionRecord::class,
             oxygenSaturation.id to OxygenSaturationRecord::class,
             respiratoryRate.id to RespiratoryRateRecord::class,
             restingHeartRate.id to RestingHeartRateRecord::class,
@@ -449,6 +462,9 @@ class HealthConnectSensorManager : SensorManager {
         }
         if (isEnabled(context, leanBodyMass)) {
             updateLeanBodyMassSensor(context)
+        }
+        if (isEnabled(context, mindfulnessDuration)) {
+            updateMindfulnessDurationSensor(context)
         }
         if (isEnabled(context, oxygenSaturation)) {
             updateOxygenSaturationSensor(context)
@@ -796,6 +812,31 @@ class HealthConnectSensorManager : SensorManager {
         )
     }
 
+    private suspend fun updateMindfulnessDurationSensor(context: Context) {
+        val healthConnectClient = getOrCreateHealthConnectClient(context) ?: return
+        val mindfulnessRequest = buildReadRecordsRequest(MindfulnessSessionRecord::class)
+        val mindfulnessRecords = healthConnectClient.readRecordsOrNull(mindfulnessRequest)
+        if (mindfulnessRecords == null || mindfulnessRecords.records.isEmpty()) {
+            return
+        }
+        val lastRecord = mindfulnessRecords.records.last()
+        val sessionDuration = (lastRecord.endTime.toEpochMilli() - lastRecord.startTime.toEpochMilli())
+            .toDuration(DurationUnit.MILLISECONDS)
+            .inWholeMinutes
+        onSensorUpdated(
+            context,
+            mindfulnessDuration,
+            sessionDuration,
+            mindfulnessDuration.statelessIcon,
+            attributes = mapOf(
+                "startTime" to lastRecord.startTime,
+                "endTime" to lastRecord.endTime,
+                "sessionType" to getMindfulnessSessionType(lastRecord.sessionType),
+                "source" to lastRecord.metadata.dataOrigin.packageName,
+            ),
+        )
+    }
+
     private suspend fun updateOxygenSaturationSensor(context: Context) {
         val healthConnectClient = getOrCreateHealthConnectClient(context) ?: return
         val oxygenSaturationRequest = buildReadRecordsRequest(OxygenSaturationRecord::class)
@@ -968,6 +1009,7 @@ class HealthConnectSensorManager : SensorManager {
                 height,
                 hydration,
                 leanBodyMass,
+                mindfulnessDuration,
                 oxygenSaturation,
                 respiratoryRate,
                 restingHeartRate,
@@ -1135,6 +1177,19 @@ class HealthConnectSensorManager : SensorManager {
             BodyTemperatureMeasurementLocation.MEASUREMENT_LOCATION_UNKNOWN -> STATE_UNKNOWN
             BodyTemperatureMeasurementLocation.MEASUREMENT_LOCATION_VAGINA -> "vagina"
             BodyTemperatureMeasurementLocation.MEASUREMENT_LOCATION_WRIST -> "wrist"
+            else -> STATE_UNKNOWN
+        }
+    }
+
+    private fun getMindfulnessSessionType(sessionType: Int): String {
+        return when (sessionType) {
+            MindfulnessSessionRecord.MINDFULNESS_SESSION_TYPE_MEDITATION -> "meditation"
+            MindfulnessSessionRecord.MINDFULNESS_SESSION_TYPE_BREATHING -> "breathing"
+            MindfulnessSessionRecord.MINDFULNESS_SESSION_TYPE_MUSIC -> "music"
+            MindfulnessSessionRecord.MINDFULNESS_SESSION_TYPE_MOVEMENT -> "movement"
+            MindfulnessSessionRecord.MINDFULNESS_SESSION_TYPE_UNGUIDED -> "unguided"
+            MindfulnessSessionRecord.MINDFULNESS_SESSION_TYPE_OTHER -> "other"
+            MindfulnessSessionRecord.MINDFULNESS_SESSION_TYPE_UNKNOWN -> STATE_UNKNOWN
             else -> STATE_UNKNOWN
         }
     }
